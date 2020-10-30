@@ -3,45 +3,65 @@
 const { db } = require('../util/admin');
 const { codeGenerator } = require('../util/codeGenerator');
 
-exports.createNewAccessCode = (req, res) => {
+// Twilio function
+const { sendCode } = require('./twilio');
+
+exports.createNewAccessCode = async (req, res) => {
 	if (req.body.phoneNumber.trim() === '') {
 		return response.status(400).json({ phoneNumber: 'Must not be empty' });
 	}
 
+	const phoneNumber = req.body.phoneNumber.trim();
 	const newUser = {
-		phoneNumber: req.body.phoneNumber,
 		accessCode: codeGenerator()
 	};
 
-	db
-		.collection('users')
-		.add(newUser)
-		.then((doc) => {
-			const userAccessCode = doc.accessCode;
+	try {
+		const userCollectionRef = db.collection('users');
+
+		// * Write to db new accessCode
+		await userCollectionRef.doc(phoneNumber).set(newUser);
+		// * Retrieve the newly written result
+		const result = await userCollectionRef.doc(phoneNumber).get();
+
+		if (result.exists) {
+			const userAccessCode = await result.data().accessCode;
+
+			const message = `Thanks for trying out this example firebase-twilio app, here's your code ${userAccessCode}`;
+			await sendCode(phoneNumber, message);
 			return res.status(200).json({ accessCode: userAccessCode });
-		})
-		.catch((err) => {
-			return response.status(500).json({ error: err.code });
-		});
+		} else {
+			throw new Error("Doc doesn't exist!");
+		}
+	} catch (error) {
+		return res.status(500).json({ error: error.code });
+	}
 };
 
-exports.validateAccessCode = (req, res) => {
+exports.validateAccessCode = async (req, res) => {
 	if (req.body.accessCode.trim() === '') {
 		return res.status(400).json({ accessCode: 'Must not be empty' });
 	}
 
-	// Retrieve document associated with accessCode
-	const document = db.doc(`/users/${req.body.accessCode}`);
-	document
-		.get()
-		.then((doc) => {
-			if (!doc.exists) {
-				return res.status(404).json({ error: "User with this code doesn't exist" });
-			}
-			return res.status(200).json({ success: true });
-		})
-		.catch((err) => {
-			console.error(err);
-			return response.status(500).json({ error: err.code });
+	try {
+		const accessCode = req.body.accessCode.trim();
+
+		// Retrieve document query associated with accessCode
+		const queryRef = db.collection('users').where('accessCode', '==', accessCode);
+		const allUserSnapshot = await queryRef.get();
+
+		// Check if there is a user with the accessCode in db
+		const userList = [];
+		allUserSnapshot.forEach((user) => {
+			userList.push(user.data());
 		});
+
+		if (userList.length > 0) {
+			return res.status(200).json({ success: true });
+		} else {
+			return res.status(200).json({ success: false });
+		}
+	} catch (error) {
+		return res.status(500).json({ error: error.code });
+	}
 };
