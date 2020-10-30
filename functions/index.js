@@ -1,6 +1,3 @@
-// Import config env
-require('dotenv').config();
-
 const functions = require('firebase-functions');
 const express = require('express');
 const app = express();

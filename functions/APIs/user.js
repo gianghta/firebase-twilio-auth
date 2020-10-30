@@ -4,7 +4,7 @@ const { db } = require('../util/admin');
 const { codeGenerator } = require('../util/codeGenerator');
 
 // Twilio function
-const { sendCode } = require('./twilio');
+const { sendCode } = require('../util/twilio');
 
 exports.createNewAccessCode = async (req, res) => {
 	if (req.body.phoneNumber.trim() === '') {
@@ -28,7 +28,9 @@ exports.createNewAccessCode = async (req, res) => {
 			const userAccessCode = await result.data().accessCode;
 
 			const message = `Thanks for trying out this example firebase-twilio app, here's your code ${userAccessCode}`;
+
 			await sendCode(phoneNumber, message);
+
 			return res.status(200).json({ accessCode: userAccessCode });
 		} else {
 			throw new Error("Doc doesn't exist!");
@@ -47,13 +49,19 @@ exports.validateAccessCode = async (req, res) => {
 		const accessCode = req.body.accessCode.trim();
 
 		// Retrieve document query associated with accessCode
-		const queryRef = db.collection('users').where('accessCode', '==', accessCode);
+		const userCollectionRef = db.collection('users');
+		const queryRef = userCollectionRef.where('accessCode', '==', accessCode);
 		const allUserSnapshot = await queryRef.get();
 
 		// Check if there is a user with the accessCode in db
 		const userList = [];
-		allUserSnapshot.forEach((user) => {
+		allUserSnapshot.forEach(async (user) => {
+			// Put user into snapshot list
 			userList.push(user.data());
+
+			// Reset access code to empty string
+			const userId = user.id;
+			await userCollectionRef.doc(userId).set({ accessCode: '' });
 		});
 
 		if (userList.length > 0) {
