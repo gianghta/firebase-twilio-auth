@@ -61,7 +61,8 @@ class SignUp extends Component {
 		};
 
 		try {
-			const response = await axios.post('https://access-code-generation.web.app/create');
+			const response = await axios.post('https://access-code-generation.web.app/create', userData);
+			console.log(response);
 			this.setState({
 				loading: false
 			});
