@@ -43,7 +43,11 @@ class SignUp extends Component {
 
 		this.state = {
 			phoneNumber: '',
-			loading: false
+			accessCode: '',
+			loading: false,
+			send: false,
+			success: false,
+			message: ''
 		};
 	}
 
@@ -56,13 +60,28 @@ class SignUp extends Component {
 	handleSubmit = async (event) => {
 		event.preventDefault();
 		this.setState({ loading: true });
-		const userData = {
+		const phoneNumberData = {
 			phoneNumber: this.state.phoneNumber
 		};
 
+		const accessCodeData = {
+			accessCode: this.state.accessCode
+		};
+
 		try {
-			const response = await axios.post('https://access-code-generation.web.app/create', userData);
-			console.log(response);
+			if (!this.state.send) {
+				const response = await axios.post('https://access-code-generation.web.app/create', phoneNumberData);
+				this.setState({
+					send: true
+				});
+			} else {
+				const response = await axios.post('https://access-code-generation.web.app/validate', accessCodeData);
+				this.setState({
+					success: true,
+					message: JSON.stringify(response.data)
+				});
+			}
+
 			this.setState({
 				loading: false
 			});
@@ -89,20 +108,40 @@ class SignUp extends Component {
 					</Typography>
 					<Typography variant="caption" display="block" gutterBottom>
 						Please enter a US Phone number, prefix with the area code (+1)
+						<br />
+						For example: +10123456789
 					</Typography>
 					<form className={classes.form} noValidate>
-						<TextField
-							variant="outlined"
-							margin="normal"
-							required
-							fullWidth
-							id="phoneNumber"
-							label="Phone number"
-							name="phoneNumber"
-							autoComplete="phoneNumber"
-							onChange={this.handleChange}
-							autoFocus
-						/>
+						{!this.state.send ? (
+							<TextField
+								variant="outlined"
+								margin="normal"
+								required
+								fullWidth
+								id="phoneNumber"
+								label="Phone number"
+								name="phoneNumber"
+								autoComplete="phoneNumber"
+								onChange={this.handleChange}
+								value={this.state.phoneNumber}
+								autoFocus
+							/>
+						) : (
+							<TextField
+								variant="outlined"
+								margin="normal"
+								required
+								fullWidth
+								id="accessCode"
+								label="Access Code"
+								name="accessCode"
+								autoComplete="accessCode"
+								onChange={this.handleChange}
+								value={this.state.accessCode}
+								autoFocus
+							/>
+						)}
+
 						<Button
 							type="submit"
 							fullWidth
@@ -112,10 +151,14 @@ class SignUp extends Component {
 							onClick={this.handleSubmit}
 							disabled={loading || !this.state.phoneNumber}
 						>
-							Generate Access Code
+							{!this.state.send ? 'Generate Access Code' : 'Enter Access Code'}
 							{loading && <CircularProgress size={30} className={classes.progress} />}
 						</Button>
 					</form>
+					<br />
+					<Typography variant="subtitle1" gutterBottom>
+						{!this.state.success ? '' : this.state.message}
+					</Typography>
 				</div>
 				<Box mt={8}>
 					<Copyright />
